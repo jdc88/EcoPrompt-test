@@ -13,3 +13,5 @@ frontend/src/utils/
 frontend/src/styles/
 frontend/src/types/
 frontend/src/hooks/
+
+backend/db/__pycache__/
