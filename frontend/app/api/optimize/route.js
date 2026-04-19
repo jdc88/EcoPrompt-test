@@ -11,6 +11,14 @@ import {
   tokenReductionPct,
 } from "@/lib/scoring";
 
+const EMPTY_SKELETON = {
+  intent: "",
+  task: "",
+  subject: "",
+  output: "",
+  prompt: "",
+};
+
 export async function POST(request) {
   let body;
   try {
@@ -36,6 +44,7 @@ export async function POST(request) {
       efficiency: 0,
       clarityScore: 0,
       mode: DEFAULT_OPTIMIZATION_MODE,
+      skeleton: EMPTY_SKELETON,
     });
   }
 
@@ -55,6 +64,12 @@ export async function POST(request) {
     { meaningLoss, constraintDrop },
   );
 
+  const resolvedMode = ["clean", "precise", "compact", "structured"].includes(
+    mode,
+  )
+    ? mode
+    : DEFAULT_OPTIMIZATION_MODE;
+
   return NextResponse.json({
     optimized,
     model,
@@ -62,8 +77,13 @@ export async function POST(request) {
     afterTokens,
     efficiency,
     clarityScore,
-    mode: ["clean", "precise", "compact", "structured"].includes(mode)
-      ? mode
-      : DEFAULT_OPTIMIZATION_MODE,
+    mode: resolvedMode,
+    skeleton: {
+      intent: "other",
+      task: "user request",
+      subject: "(see PROMPT)",
+      output: "text",
+      prompt: trimmed.slice(0, 500),
+    },
   });
 }

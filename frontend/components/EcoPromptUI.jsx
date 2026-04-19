@@ -50,6 +50,8 @@ export default function EcoPromptUI({ onSignalMetrics }) {
   const [lastOptimized, setLastOptimized] = useState(null);
   const [lastReverted, setLastReverted] = useState(false);
   const [runMetrics, setRunMetrics] = useState(null);
+  /** @type {null | { intent: string; task: string; subject: string; output: string; prompt: string }} */
+  const [skeleton, setSkeleton] = useState(null);
   const [copied, setCopied] = useState(false);
 
   const tokenStats = useMemo(() => {
@@ -147,6 +149,7 @@ export default function EcoPromptUI({ onSignalMetrics }) {
       setLastRaw(null);
       setLastOptimized(null);
       setRunMetrics(null);
+      setSkeleton(null);
       setLastReverted(false);
       setCopied(false);
       return;
@@ -178,6 +181,17 @@ export default function EcoPromptUI({ onSignalMetrics }) {
           afterTokens: Number(data.afterTokens) || 0,
           mode: typeof data.mode === "string" ? data.mode : optimizationMode,
         });
+        if (data.skeleton && typeof data.skeleton === "object") {
+          setSkeleton({
+            intent: String(data.skeleton.intent ?? ""),
+            task: String(data.skeleton.task ?? ""),
+            subject: String(data.skeleton.subject ?? ""),
+            output: String(data.skeleton.output ?? ""),
+            prompt: String(data.skeleton.prompt ?? ""),
+          });
+        } else {
+          setSkeleton(null);
+        }
         setCopied(false);
         return;
       } catch {
@@ -195,6 +209,7 @@ export default function EcoPromptUI({ onSignalMetrics }) {
     setLastOptimized(out);
     setOptimized(out);
     setLastReverted(reverted);
+    setSkeleton(null);
     setRunMetrics({
       efficiency: tokenReductionPct(before, after),
       clarityScore: computeClarityScore(raw, out, optimizationMode, reverted, {
@@ -247,8 +262,9 @@ export default function EcoPromptUI({ onSignalMetrics }) {
             🌿 EcoPrompt
           </h1>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-300">
-            Multi-mode, constraint-aware optimization—same meaning, clearer
-            signal, measured Human Delta (efficiency + clarity).
+            HumanDelta retrieval + Qwen (Ollama) skeleton and reviser—multi-mode
+            constraint-aware rewrite. Same meaning, clearer signal; Human Delta
+            scores efficiency + clarity for the compute-flow view.
           </p>
           {isBackendConfigured() ? (
             <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-emerald-400/90">
@@ -356,6 +372,36 @@ export default function EcoPromptUI({ onSignalMetrics }) {
             )}
           </p>
         </div>
+
+        {skeleton && (
+          <div className="rounded-xl border border-cyan-400/20 bg-black/30 px-4 py-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300/90">
+              Semantic skeleton (Ollama extract)
+            </h3>
+            <dl className="mt-2 grid gap-1.5 text-xs text-slate-300 sm:grid-cols-2">
+              <div>
+                <dt className="text-slate-500">Intent</dt>
+                <dd className="font-medium text-slate-100">{skeleton.intent || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Task</dt>
+                <dd className="font-medium text-slate-100">{skeleton.task || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Subject</dt>
+                <dd className="font-medium text-slate-100">{skeleton.subject || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Output</dt>
+                <dd className="font-medium text-slate-100">{skeleton.output || "—"}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-slate-500">PROMPT (cleaned)</dt>
+                <dd className="mt-0.5 text-slate-200">{skeleton.prompt || "—"}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
 
         <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-center text-[10px] text-slate-400">
           Score cards use tokenizer{" "}

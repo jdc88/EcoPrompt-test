@@ -68,7 +68,10 @@ export default function OceanMap({
 
   const flowLines = useMemo(() => {
     const density =
-      loadIntensity * (0.45 + turbulence * 0.55) * (1.1 - efficiencyNorm * 0.35);
+      loadIntensity *
+      (0.45 + turbulence * 0.55) *
+      (1.1 - efficiencyNorm * 0.35) *
+      (1 - 0.5 * efficiencyNorm);
     const n = Math.min(
       22,
       Math.max(0, Math.floor(22 * density)),
