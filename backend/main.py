@@ -42,6 +42,7 @@ class SkeletonModel(BaseModel):
     task: str
     subject: str
     output: str
+    constraints: str = ""
     prompt: str
 
 
@@ -126,6 +127,7 @@ def optimize_endpoint(req: PromptRequest):
         task=sk.get("task") or "",
         subject=sk.get("subject") or "",
         output=sk.get("output") or "",
+        constraints=sk.get("constraints") or "",
         prompt=sk.get("prompt") or "",
     )
 
@@ -182,3 +184,11 @@ def list_runs(limit: int = 20):
         limit = 100
     rows = queries.get_recent_runs(limit)
     return {"runs": rows}
+
+
+@app.get("/runs/{run_id}")
+def get_run(run_id: int):
+    row = queries.get_run_by_id(run_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return row

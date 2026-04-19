@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { computeHumanDelta } from "@/lib/humanDelta";
 import { estimateTokensByModel, TOKEN_MODELS } from "@/lib/tokenEstimate";
@@ -29,12 +30,6 @@ const MODE_LABELS = {
   compact: "Compact — light redundancy trim",
   structured: "Structured — bullets / steps",
 };
-
-function efficiencyLabelFromScore(score) {
-  if (score >= 60) return "HIGH";
-  if (score >= 30) return "MEDIUM";
-  return "LOW";
-}
 
 /** @typedef {{ source: "backend" | "local"; marker?: string; inPrompt?: boolean; allowed?: boolean; reason?: string; hitCount?: number }} RetrievalUiState */
 
@@ -165,9 +160,15 @@ export default function EcoPromptUI({ onSignalMetrics }) {
         )
       : null);
 
-  const efficiencyLabel =
-    reductionPct != null ? efficiencyLabelFromScore(reductionPct) : null;
   const modeUsed = runMetrics?.mode ?? optimizationMode;
+  const ecoScore =
+    runMetrics?.ecoScore != null && !Number.isNaN(runMetrics.ecoScore)
+      ? runMetrics.ecoScore
+      : null;
+  const runIdForEco =
+    runMetrics?.runId != null && !Number.isNaN(runMetrics.runId)
+      ? runMetrics.runId
+      : null;
 
   const panelClass =
     "rounded-2xl border border-white/10 bg-white/10 p-6 shadow-glow backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/[0.12]";
@@ -211,6 +212,18 @@ export default function EcoPromptUI({ onSignalMetrics }) {
           beforeTokens: Number(data.beforeTokens) || 0,
           afterTokens: Number(data.afterTokens) || 0,
           mode: typeof data.mode === "string" ? data.mode : optimizationMode,
+          runId:
+            data.run_id != null && data.run_id !== ""
+              ? Number(data.run_id)
+              : null,
+          ecoScore:
+            data.eco_score != null && data.eco_score !== ""
+              ? Number(data.eco_score)
+              : null,
+          ecoBreakdown:
+            data.eco_breakdown && typeof data.eco_breakdown === "object"
+              ? data.eco_breakdown
+              : null,
         });
         setRetrieval({
           source: "backend",
@@ -235,6 +248,7 @@ export default function EcoPromptUI({ onSignalMetrics }) {
             task: String(data.skeleton.task ?? ""),
             subject: String(data.skeleton.subject ?? ""),
             output: String(data.skeleton.output ?? ""),
+            constraints: String(data.skeleton.constraints ?? ""),
             prompt: String(data.skeleton.prompt ?? ""),
           });
         } else {
@@ -269,6 +283,9 @@ export default function EcoPromptUI({ onSignalMetrics }) {
       beforeTokens: before,
       afterTokens: after,
       mode: optimizationMode,
+      runId: null,
+      ecoScore: null,
+      ecoBreakdown: null,
     });
     setCopied(false);
   }
@@ -485,6 +502,10 @@ export default function EcoPromptUI({ onSignalMetrics }) {
                 <dd className="font-medium text-slate-100">{skeleton.output || "—"}</dd>
               </div>
               <div className="sm:col-span-2">
+                <dt className="text-slate-500">Constraints</dt>
+                <dd className="mt-0.5 text-slate-200">{skeleton.constraints || "—"}</dd>
+              </div>
+              <div className="sm:col-span-2">
                 <dt className="text-slate-500">PROMPT (cleaned)</dt>
                 <dd className="mt-0.5 text-slate-200">{skeleton.prompt || "—"}</dd>
               </div>
@@ -535,12 +556,48 @@ export default function EcoPromptUI({ onSignalMetrics }) {
             </p>
             <p className="mt-0.5 text-[9px] text-slate-500">0–100 heuristic</p>
           </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Band
+          <div
+            className="rounded-xl border border-white/10 bg-black/20 px-4 py-3"
+            title={
+              runMetrics?.ecoBreakdown
+                ? JSON.stringify(runMetrics.ecoBreakdown)
+                : undefined
+            }
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Eco score (V1)
+              </p>
+              {runIdForEco != null ? (
+                <Link
+                  href={`/eco/${runIdForEco}`}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-teal-400/35 bg-teal-500/10 text-teal-200 transition hover:bg-teal-500/20 hover:text-white"
+                  aria-label="Open eco details for this run"
+                  title="Eco details for this run"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                    aria-hidden
+                  >
+                    <path d="M12 21c4-3.2 7-7.3 7-11.5A7 7 0 0 0 5 9.5C5 13.7 8 17.8 12 21Z" />
+                    <path d="M12 21V11" />
+                    <path d="M5 9.5c2.2-.8 4.6-1 7-1s4.8.2 7 1" />
+                  </svg>
+                </Link>
+              ) : null}
+            </div>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-teal-300">
+              {ecoScore != null ? ecoScore : "—"}
             </p>
-            <p className="mt-1 text-lg font-semibold text-white">
-              {efficiencyLabel ?? "—"}
+            <p className="mt-0.5 text-[9px] text-slate-500">
+              Relative compute efficiency (backend)
             </p>
           </div>
         </div>

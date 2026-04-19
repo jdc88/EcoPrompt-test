@@ -16,6 +16,7 @@ const EMPTY_SKELETON = {
   task: "",
   subject: "",
   output: "",
+  constraints: "",
   prompt: "",
 };
 
@@ -83,6 +84,7 @@ export async function POST(request) {
       task: "user request",
       subject: "(see PROMPT)",
       output: "text",
+      constraints: "none",
       prompt: trimmed.slice(0, 500),
     },
   });

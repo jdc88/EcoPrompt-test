@@ -178,3 +178,38 @@ def get_recent_runs(limit: int = 20) -> list[dict[str, Any]]:
         return rows
     finally:
         conn.close()
+
+
+def get_run_by_id(run_id: int) -> dict[str, Any] | None:
+    if not _db_enabled():
+        return None
+    conn = connect_to_database()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            """
+            SELECT
+              r.id,
+              r.raw_prompt,
+              r.task_type,
+              r.target_model,
+              r.created_at,
+              pr.optimized_prompt,
+              pr.changes_json,
+              pr.model_name,
+              pr.latency_ms
+            FROM prompt_runs r
+            LEFT JOIN prompt_rewrites pr ON pr.run_id = r.id
+            WHERE r.id = %s
+            """,
+            (run_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        out = dict(row)
+        retrievals_by_run = get_prompt_retrievals_by_run_ids([int(out["id"])])
+        out["retrievals"] = retrievals_by_run.get(int(out["id"]), [])
+        return out
+    finally:
+        conn.close()
