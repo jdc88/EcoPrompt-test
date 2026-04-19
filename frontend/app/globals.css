@@ -27,3 +27,36 @@ body {
     opacity: 1;
   }
 }
+
+@keyframes marine-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(-12vw, 18vh, 0);
+    opacity: 0.12;
+  }
+}
+
+@keyframes water-meter-wave {
+  0% {
+    transform: translateX(-8%);
+  }
+  100% {
+    transform: translateX(8%);
+  }
+}
+
+.water-meter-wave {
+  background: radial-gradient(
+    ellipse 120% 80% at 50% 0%,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(165, 243, 252, 0.15) 45%,
+    transparent 70%
+  );
+  animation: water-meter-wave 2.8s ease-in-out infinite alternate;
+}

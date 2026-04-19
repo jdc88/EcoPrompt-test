@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { calculateImpact } from "@/lib/impact";
+import { calculateImpact, formatWaterVolume } from "@/lib/impact";
 
 const DEFAULT_MAX = 400;
 
@@ -16,6 +16,9 @@ export default function OceanMap({
   beforeTokens = null,
   efficiency = 0,
   clarityScore = 50,
+  ecoScore = null,
+  waterSaved = 0,
+  energySaved = 0,
 }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
@@ -160,29 +163,56 @@ export default function OceanMap({
     return n.toFixed(4);
   };
 
+  const waterFmt = formatWaterVolume(Math.max(0, waterSaved));
+  const calmHint =
+    waterSaved > 0
+      ? ` Reprompt saved ~${waterFmt.value} ${waterFmt.unit} water proxy — currents ease as η rises.`
+      : "";
+
   const caption =
     stability > 0.62
-      ? "Stable signal — higher clarity and stronger efficiency: smoother compute-flow metaphor over the ocean surface."
+      ? `Stable signal — smoother surface currents.${calmHint}`
       : stability > 0.35
-        ? "Mixed flow — moderate ambiguity or token load: visible structure in the currents."
-        : "Turbulent signal — lower clarity or heavier token load: more crossed flow lines (no pollution metaphor).";
+        ? `Mixed flow — structure visible in the token stream.${calmHint}`
+        : `Turbulent signal — heavier load, busier flow lines.${calmHint}`;
 
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3 px-1">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-white">
-            Compute flow & signal stability
+            3D compute ocean
           </h2>
           <p className="max-w-xl text-xs text-slate-400">
-            Efficiency maps to how much work the prompt still implies; clarity
-            maps to how stable the “signal” reads. Together they drive thermal
-            tint and flow turbulence—not environmental pollution.
+            ArcGIS scene + overlays: efficiency and clarity drive motion; water
+            and energy deltas (from token heuristics) reinforce how much load you
+            shed on the local model.
           </p>
         </div>
-        <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
-          η {efficiency.toFixed(0)}% · clarity {clarityScore.toFixed(0)} · tokens{" "}
-          <span className="tabular-nums text-white">{tokens.toFixed(1)}</span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {waterSaved > 0 ? (
+            <div className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-100">
+              💧 −{waterFmt.value}
+              {waterFmt.unit} proxy
+            </div>
+          ) : (
+            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              💧 water proxy — run optimize
+            </div>
+          )}
+          <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
+            η {efficiency.toFixed(0)}% · clarity {clarityScore.toFixed(0)}
+            {ecoScore != null && !Number.isNaN(ecoScore) ? (
+              <>
+                {" "}
+                · eco <span className="tabular-nums text-white">{ecoScore.toFixed(0)}</span>
+              </>
+            ) : null}
+            <span className="tabular-nums text-white">
+              {" "}
+              · {tokens.toFixed(1)} tok
+            </span>
+          </div>
         </div>
       </div>
 
@@ -243,6 +273,11 @@ export default function OceanMap({
               <span className="text-slate-500">
                 (vs before ~{fmtSmall(impactBefore.energy)} kWh · ~
                 {fmtSmall(impactBefore.water)} L)
+              </span>
+            ) : null}
+            {energySaved > 0 ? (
+              <span className="text-cyan-200/80">
+                Δ energy ~{fmtSmall(energySaved)} kWh this run
               </span>
             ) : null}
           </div>
