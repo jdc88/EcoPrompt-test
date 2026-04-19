@@ -5,7 +5,6 @@ import { estimateTokens, optimizePrompt } from "@/lib/optimizer";
 import { computeHumanDelta } from "@/lib/humanDelta";
 
 const TASK_TYPES = ["Explain", "Summarize", "Analyze", "Generate"];
-const MODELS = ["GPT-4", "Claude", "LLaMA"];
 
 function efficiencyLabelFromScore(score) {
   if (score >= 60) return "HIGH";
@@ -19,7 +18,6 @@ function efficiencyLabelFromScore(score) {
 export default function EcoPromptUI({ onHumanDeltaChange }) {
   const [prompt, setPrompt] = useState("");
   const [taskType, setTaskType] = useState("Explain");
-  const [targetModel, setTargetModel] = useState("GPT-4");
   const [optimized, setOptimized] = useState("");
   const [tokensBefore, setTokensBefore] = useState(null);
   const [tokensAfter, setTokensAfter] = useState(null);
@@ -103,41 +101,22 @@ export default function EcoPromptUI({ onHumanDeltaChange }) {
           />
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
-              Task type
-            </span>
-            <select
-              value={taskType}
-              onChange={(e) => setTaskType(e.target.value)}
-              className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-slate-100 outline-none ring-cyan-400/30 transition focus:border-cyan-400/40 focus:ring-2"
-            >
-              {TASK_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
-              Model
-            </span>
-            <select
-              value={targetModel}
-              onChange={(e) => setTargetModel(e.target.value)}
-              className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-slate-100 outline-none ring-cyan-400/30 transition focus:border-cyan-400/40 focus:ring-2"
-              title="Reserved for future routing—optimization is model-agnostic today."
-            >
-              {MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="flex flex-col gap-2">
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+            Task type
+          </span>
+          <select
+            value={taskType}
+            onChange={(e) => setTaskType(e.target.value)}
+            className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-slate-100 outline-none ring-cyan-400/30 transition focus:border-cyan-400/40 focus:ring-2"
+          >
+            {TASK_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <button
           type="button"

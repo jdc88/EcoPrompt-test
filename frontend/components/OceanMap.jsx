@@ -6,11 +6,15 @@ import { useEffect, useMemo, useRef } from "react";
  * ArcGIS SceneView + “ocean health” overlay driven by Human Delta efficiency (0–100).
  * Overlay opacity ≈ 1 − score/100 — clearer water when prompts are leaner.
  */
+/** Baseline overlay before first optimize — avoids max murk (score 0) by default. */
+const NEUTRAL_PREVIEW_SCORE = 52;
+
 export default function OceanMap({ efficiencyScore }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
 
-  const score = efficiencyScore ?? 0;
+  const hasRun = efficiencyScore != null;
+  const score = efficiencyScore ?? NEUTRAL_PREVIEW_SCORE;
 
   const tier = useMemo(() => {
     if (score >= 80) return "clear";
@@ -18,19 +22,20 @@ export default function OceanMap({ efficiencyScore }) {
     return "murky";
   }, [score]);
 
-  const overlayOpacity = useMemo(
-    () => Math.min(1, Math.max(0, 1 - score / 100)),
-    [score],
-  );
+  /** Softer than raw (1 − score/100) so the basemap stays visible; scales with score. */
+  const overlayOpacity = useMemo(() => {
+    const raw = Math.min(1, Math.max(0, 1 - score / 100));
+    return raw * 0.62;
+  }, [score]);
 
   const overlayBackground = useMemo(() => {
     if (tier === "clear") {
-      return "linear-gradient(145deg, rgba(10,120,160,0.55) 0%, rgba(15,65,110,0.35) 100%)";
+      return "linear-gradient(145deg, rgba(40,160,200,0.38) 0%, rgba(30,100,150,0.22) 100%)";
     }
     if (tier === "medium") {
-      return "linear-gradient(145deg, rgba(110,85,55,0.52) 0%, rgba(40,55,65,0.42) 100%)";
+      return "linear-gradient(145deg, rgba(130,100,70,0.38) 0%, rgba(55,70,85,0.28) 100%)";
     }
-    return "linear-gradient(165deg, rgba(35,18,12,0.78) 0%, rgba(8,10,14,0.92) 100%)";
+    return "linear-gradient(165deg, rgba(55,35,28,0.55) 0%, rgba(22,28,38,0.62) 100%)";
   }, [tier]);
 
   useEffect(() => {
@@ -41,7 +46,7 @@ export default function OceanMap({ efficiencyScore }) {
         import("@arcgis/core/Map"),
         import("@arcgis/core/views/SceneView"),
       ]);
-      await import("@arcgis/core/assets/esri/themes/dark/main.css");
+      await import("@arcgis/core/assets/esri/themes/light/main.css");
 
       if (!containerRef.current || cancelled) return;
 
@@ -62,12 +67,13 @@ export default function OceanMap({ efficiencyScore }) {
 
       try {
         await view.when();
+        /* Sunlit surface view — basemap reads brighter than deep underwater (-z). */
         await view
           .goTo(
             {
-              position: [-118.35, 33.72, -45],
+              position: [-118.35, 33.72, 280],
               heading: 22,
-              tilt: 94,
+              tilt: 62,
             },
             { duration: 1200 },
           )
@@ -115,7 +121,14 @@ export default function OceanMap({ efficiencyScore }) {
         </div>
         <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
           Δ score:{" "}
-          <span className="tabular-nums text-white">{score.toFixed(1)}</span>
+          <span className="tabular-nums text-white">
+            {hasRun ? score.toFixed(1) : "—"}
+          </span>
+          {!hasRun && (
+            <span className="ml-1 font-normal normal-case text-slate-400">
+              (preview)
+            </span>
+          )}
           {" · "}
           {tier === "clear"
             ? "Low murk"
@@ -125,7 +138,7 @@ export default function OceanMap({ efficiencyScore }) {
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-inner">
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-800/30 shadow-inner ring-1 ring-white/5">
         <div
           ref={containerRef}
           className="relative z-0 h-[min(52vh,420px)] min-h-[280px] w-full [&_.esri-view-surface]:outline-none"
@@ -137,10 +150,9 @@ export default function OceanMap({ efficiencyScore }) {
           style={{
             opacity: overlayOpacity,
             background: overlayBackground,
-            mixBlendMode: "multiply",
           }}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#040d1b]/90 via-[#040d1b]/20 to-transparent px-4 py-3">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#040d1b]/55 via-[#040d1b]/10 to-transparent px-4 py-3">
           <p className="text-[11px] leading-snug text-slate-300">{tierCaption}</p>
         </div>
       </div>
