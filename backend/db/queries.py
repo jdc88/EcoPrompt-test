@@ -72,6 +72,74 @@ def insert_prompt_rewrite(
         conn.close()
 
 
+def insert_prompt_retrievals(
+    run_id: int,
+    retrievals: list[dict[str, Any]],
+    retrieval_source: str = "human_delta",
+) -> None:
+    if not _db_enabled() or not retrievals:
+        return
+    conn = connect_to_database()
+    try:
+        cur = conn.cursor()
+        rows = []
+        for idx, item in enumerate(retrievals, start=1):
+            rows.append(
+                (
+                    run_id,
+                    item.get("example_id"),
+                    item.get("retrieved_text"),
+                    item.get("similarity"),
+                    idx,
+                    retrieval_source,
+                )
+            )
+        cur.executemany(
+            """
+            INSERT INTO prompt_retrievals (
+              run_id, example_id, retrieved_text, similarity, rank_position, retrieval_source
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            rows,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_prompt_retrievals_by_run_ids(run_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    if not _db_enabled() or not run_ids:
+        return {}
+    conn = connect_to_database()
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            """
+            SELECT
+              id,
+              run_id,
+              example_id,
+              retrieved_text,
+              similarity,
+              rank_position,
+              retrieval_source,
+              created_at
+            FROM prompt_retrievals
+            WHERE run_id = ANY(%s)
+            ORDER BY run_id, rank_position ASC, id ASC
+            """,
+            (run_ids,),
+        )
+        out: dict[int, list[dict[str, Any]]] = {}
+        for row in cur.fetchall():
+            key = int(row["run_id"])
+            out.setdefault(key, []).append(dict(row))
+        return out
+    finally:
+        conn.close()
+
+
 def get_recent_runs(limit: int = 20) -> list[dict[str, Any]]:
     if not _db_enabled():
         return []
@@ -97,6 +165,10 @@ def get_recent_runs(limit: int = 20) -> list[dict[str, Any]]:
             """,
             (limit,),
         )
-        return list(cur.fetchall())
+        rows = [dict(r) for r in cur.fetchall()]
+        retrievals_by_run = get_prompt_retrievals_by_run_ids([int(r["id"]) for r in rows])
+        for row in rows:
+            row["retrievals"] = retrievals_by_run.get(int(row["id"]), [])
+        return rows
     finally:
         conn.close()

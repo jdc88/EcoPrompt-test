@@ -104,8 +104,10 @@ def optimize_endpoint(req: PromptRequest):
     if mode not in MODES:
         mode = DEFAULT_MODE
 
+    run_id = queries.insert_prompt_run(raw, mode, DatabaseConfig.OLLAMA_MODEL or "qwen")
+
     t0 = time.perf_counter()
-    result = run_optimize_pipeline(raw, mode)
+    result = run_optimize_pipeline(raw, mode, run_id=run_id)
     result["optimized"] = enforce_direct_instruction(result["optimized"])
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
@@ -118,7 +120,6 @@ def optimize_endpoint(req: PromptRequest):
         prompt=sk.get("prompt") or "",
     )
 
-    run_id = queries.insert_prompt_run(raw, mode, DatabaseConfig.OLLAMA_MODEL or "qwen")
     if run_id is not None:
         try:
             tags = [

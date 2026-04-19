@@ -15,12 +15,14 @@ from typing import Any
 import ollama
 from humandelta import HumanDelta
 
+from db import queries
 from optimizer import DEFAULT_MODE, MODES, loses_constraints, optimize_prompt
 from scoring import clarity_score, detect_meaning_loss, efficiency_percent
 from settings import DatabaseConfig
 from token_estimate import estimate_tokens_by_model
 
 logger = logging.getLogger(__name__)
+HD_MIN_SIMILARITY = 0.65
 
 EXTRACTOR_SYSTEM = """You extract the semantic skeleton from a user's input. You do NOT answer the prompt.
 
@@ -190,14 +192,34 @@ def extract_skeleton(user_prompt: str) -> str:
     return (r.message.content or "").strip()
 
 
-def hd_search(user_prompt: str, top_k: int = 5) -> list[str]:
+def hd_search(user_prompt: str, top_k: int = 5) -> list[dict[str, Any]]:
     """STEP B — HumanDelta semantic retrieval (style/structure guidance only)."""
     hd = _hd_client()
     if hd is None:
         return []
     try:
         hits = hd.search(user_prompt, top_k=top_k)
-        return [h.text for h in hits if getattr(h, "text", None)]
+        out: list[dict[str, Any]] = []
+        for h in hits:
+            text = getattr(h, "text", None)
+            if not text:
+                continue
+            # Keep exact text used downstream and capture optional metadata when available.
+            similarity = getattr(h, "similarity", None)
+            if similarity is None:
+                similarity = getattr(h, "score", None)
+            # Only include retrievals that meet the minimum similarity threshold.
+            if similarity is None or float(similarity) < HD_MIN_SIMILARITY:
+                continue
+            example_id = getattr(h, "example_id", None)
+            out.append(
+                {
+                    "retrieved_text": text,
+                    "similarity": similarity,
+                    "example_id": example_id,
+                }
+            )
+        return out
     except Exception as e:
         logger.warning("HumanDelta search failed: %s", e)
         return []
@@ -308,7 +330,7 @@ def revise_prompt_safe(
         return remove_chatty_prefixes(text), True
 
 
-def run_optimize_pipeline(user_prompt: str, mode: str) -> dict[str, Any]:
+def run_optimize_pipeline(user_prompt: str, mode: str, run_id: int | None = None) -> dict[str, Any]:
     """
     Full pipeline through STEP E (scores). Returns dict for OptimizeResponse + skeleton.
     """
@@ -316,7 +338,17 @@ def run_optimize_pipeline(user_prompt: str, mode: str) -> dict[str, Any]:
     raw = user_prompt.strip()
 
     skeleton_raw, skeleton_obj = extract_skeleton_safe(raw)
-    examples_list = hd_search(raw, top_k=5)
+    retrievals = hd_search(raw, top_k=5)
+    if run_id is not None:
+        try:
+            queries.insert_prompt_retrievals(
+                run_id=run_id,
+                retrievals=retrievals,
+                retrieval_source="human_delta",
+            )
+        except Exception as e:
+            logger.warning("DB retrieval persist failed (non-fatal): %s", e)
+    examples_list = [r["retrieved_text"] for r in retrievals]
     examples = "\n\n---\n\n".join(examples_list)
 
     optimized, rules_fallback = revise_prompt_safe(raw, m, skeleton_raw, examples)
@@ -347,4 +379,5 @@ def run_optimize_pipeline(user_prompt: str, mode: str) -> dict[str, Any]:
         "skeleton": skeleton_obj,
         "skeleton_raw": skeleton_raw,
         "rules_fallback": rules_fallback,
+        "retrievals": retrievals,
     }
