@@ -5,7 +5,6 @@ Ollama runs the local AI model used for prompt optimization.
 ### Install Ollama
 Download from: https://ollama.com/download
 
-Or (Mac with Homebrew):
 ```bash
 brew install ollama
 ollama serve
@@ -26,3 +25,6 @@ npm install
 frontend/.env.local
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 npm run dev
+
+### Run Order
+Start services in this order:
