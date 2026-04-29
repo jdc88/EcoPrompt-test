@@ -10,7 +10,6 @@ import {
   ecoScoreWaterLine,
   formatWaterVolume,
 } from "@/lib/impact";
-import { getBackendUrl, isBackendConfigured } from "@/lib/backend";
 import {
   DEFAULT_OPTIMIZATION_MODE,
   optimizePromptByMode,
@@ -74,6 +73,8 @@ export default function EcoPromptUI() {
   /** @type {null | RetrievalUiState} */
   const [retrieval, setRetrieval] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizeError, setOptimizeError] = useState("");
 
   const tokenStats = useMemo(() => {
     if (!lastRaw || lastOptimized == null || lastOptimized === "") return null;
@@ -137,81 +138,83 @@ export default function EcoPromptUI() {
       setRetrieval(null);
       setLastReverted(false);
       setCopied(false);
+      setOptimizeError("");
       return;
     }
 
-    const base = getBackendUrl();
-    if (base) {
-      try {
-        const res = await fetch(`${base}/optimize`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: raw,
-            mode: OPTIMIZATION_MODE,
-          }),
+    setIsOptimizing(true);
+    setOptimizeError("");
+    try {
+      const res = await fetch("/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: raw,
+          mode: OPTIMIZATION_MODE,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const out =
+        typeof data.optimized === "string" ? data.optimized : "";
+      setLastRaw(raw);
+      setLastOptimized(out);
+      setOptimized(out);
+      setLastReverted(false);
+      setRunMetrics({
+        efficiency: Number(data.efficiency) || 0,
+        clarityScore: Number(data.clarityScore) || 0,
+        beforeTokens: Number(data.beforeTokens) || 0,
+        afterTokens: Number(data.afterTokens) || 0,
+        mode: typeof data.mode === "string" ? data.mode : OPTIMIZATION_MODE,
+        runId:
+          data.run_id != null && data.run_id !== ""
+            ? Number(data.run_id)
+            : null,
+        ecoScore:
+          data.eco_score != null && data.eco_score !== ""
+            ? Number(data.eco_score)
+            : null,
+        ecoBreakdown:
+          data.eco_breakdown && typeof data.eco_breakdown === "object"
+            ? data.eco_breakdown
+            : null,
+      });
+      setRetrieval({
+        source: "backend",
+        marker:
+          typeof data.retrieval_marker === "string"
+            ? data.retrieval_marker
+            : undefined,
+        inPrompt: Boolean(data.retrieval_in_prompt),
+        allowed: Boolean(data.retrieval_allowed),
+        reason:
+          typeof data.retrieval_gate_reason === "string"
+            ? data.retrieval_gate_reason
+            : "",
+        hitCount:
+          typeof data.retrieval_hit_count === "number"
+            ? data.retrieval_hit_count
+            : Number(data.retrieval_hit_count) || 0,
+      });
+      if (data.skeleton && typeof data.skeleton === "object") {
+        setSkeleton({
+          intent: String(data.skeleton.intent ?? ""),
+          task: String(data.skeleton.task ?? ""),
+          subject: String(data.skeleton.subject ?? ""),
+          output: String(data.skeleton.output ?? ""),
+          constraints: String(data.skeleton.constraints ?? ""),
+          prompt: String(data.skeleton.prompt ?? ""),
         });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        const out =
-          typeof data.optimized === "string" ? data.optimized : "";
-        setLastRaw(raw);
-        setLastOptimized(out);
-        setOptimized(out);
-        setLastReverted(false);
-        setRunMetrics({
-          efficiency: Number(data.efficiency) || 0,
-          clarityScore: Number(data.clarityScore) || 0,
-          beforeTokens: Number(data.beforeTokens) || 0,
-          afterTokens: Number(data.afterTokens) || 0,
-          mode: typeof data.mode === "string" ? data.mode : OPTIMIZATION_MODE,
-          runId:
-            data.run_id != null && data.run_id !== ""
-              ? Number(data.run_id)
-              : null,
-          ecoScore:
-            data.eco_score != null && data.eco_score !== ""
-              ? Number(data.eco_score)
-              : null,
-          ecoBreakdown:
-            data.eco_breakdown && typeof data.eco_breakdown === "object"
-              ? data.eco_breakdown
-              : null,
-        });
-        setRetrieval({
-          source: "backend",
-          marker:
-            typeof data.retrieval_marker === "string"
-              ? data.retrieval_marker
-              : undefined,
-          inPrompt: Boolean(data.retrieval_in_prompt),
-          allowed: Boolean(data.retrieval_allowed),
-          reason:
-            typeof data.retrieval_gate_reason === "string"
-              ? data.retrieval_gate_reason
-              : "",
-          hitCount:
-            typeof data.retrieval_hit_count === "number"
-              ? data.retrieval_hit_count
-              : Number(data.retrieval_hit_count) || 0,
-        });
-        if (data.skeleton && typeof data.skeleton === "object") {
-          setSkeleton({
-            intent: String(data.skeleton.intent ?? ""),
-            task: String(data.skeleton.task ?? ""),
-            subject: String(data.skeleton.subject ?? ""),
-            output: String(data.skeleton.output ?? ""),
-            constraints: String(data.skeleton.constraints ?? ""),
-            prompt: String(data.skeleton.prompt ?? ""),
-          });
-        } else {
-          setSkeleton(null);
-        }
-        setCopied(false);
-        return;
-      } catch {
-        /* local fallback */
+      } else {
+        setSkeleton(null);
       }
+      setCopied(false);
+      return;
+    } catch (err) {
+      setOptimizeError(err?.message || "Optimization failed");
+    } finally {
+      setIsOptimizing(false);
     }
 
     const { text: out, reverted } = optimizePromptByMode(raw, OPTIMIZATION_MODE);
@@ -279,17 +282,9 @@ export default function EcoPromptUI() {
       <div className="grid flex-1 gap-8 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
       <section className={`${panelClass} flex flex-col gap-5`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {isBackendConfigured() ? (
-            <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/90">
-              Backend connected
-            </p>
-          ) : (
-            <p className="text-[10px] text-slate-500">
-              Local rules only — set{" "}
-              <span className="font-mono text-slate-400">NEXT_PUBLIC_BACKEND_URL</span>{" "}
-              for full pipeline
-            </p>
-          )}
+          <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/90">
+            API route connected
+          </p>
         </div>
 
         <label className="flex flex-col gap-2">
@@ -328,14 +323,20 @@ export default function EcoPromptUI() {
         <button
           type="button"
           onClick={handleOptimize}
+          disabled={isOptimizing}
           className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 px-5 py-3.5 text-sm font-semibold text-[#040d1b] shadow-glow transition hover:from-cyan-400 hover:to-cyan-300 hover:shadow-[0_0_48px_-8px_rgba(34,211,238,0.55)] active:scale-[0.99]"
         >
-          <span className="relative z-10">Optimize prompt</span>
+          <span className="relative z-10">
+            {isOptimizing ? "Optimizing..." : "Optimize prompt"}
+          </span>
           <span
             aria-hidden
             className="absolute inset-0 bg-white/10 opacity-0 transition group-hover:opacity-100"
           />
         </button>
+        {optimizeError ? (
+          <p className="text-xs text-rose-300">{optimizeError}</p>
+        ) : null}
 
         {tokenStats ? (
           <div className="rounded-xl border border-teal-500/25 bg-gradient-to-br from-teal-950/30 via-black/40 to-slate-950/50 p-4 sm:p-5">

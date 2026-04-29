@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getBackendUrl } from "@/lib/backend";
 import { calculateSavings } from "@/lib/impact";
 import { estimateTokensByModel } from "@/lib/tokenEstimate";
 
@@ -38,18 +37,15 @@ export default function EcoRunPage({ params }) {
       setLoading(true);
       setError(null);
       setRun(null);
-      const base = getBackendUrl();
-      if (!base || !Number.isFinite(runId) || runId <= 0) {
+      if (!Number.isFinite(runId) || runId <= 0) {
         setError(
-          !base
-            ? "Set NEXT_PUBLIC_BACKEND_URL to load this run from the API."
-            : "Invalid run id.",
+          "Invalid run id.",
         );
         setLoading(false);
         return;
       }
       try {
-        const res = await fetch(`${base}/runs/${runId}`);
+        const res = await fetch(`/api/runs/${runId}`);
         if (!res.ok) {
           const t = await res.text();
           throw new Error(t || res.statusText);

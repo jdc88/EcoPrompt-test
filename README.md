@@ -1,5 +1,9 @@
 # 🌿 EcoPrompt
 
+> **Revision note:** The original project was built around a local FastAPI + Ollama + HumanDelta multi-process stack (described below).  
+> This repository has since been revised for easier deployment/demo (single-command run, serverless API flow, and no local Ollama requirement).  
+> The section below preserves the original project description for historical/context purposes.
+
 EcoPrompt is a full-stack web application that optimizes user prompts for clarity, efficiency, and reduced AI compute usage. It uses a **HumanDelta + Ollama pipeline** to rewrite prompts and visualize their environmental impact.
 
 ---
