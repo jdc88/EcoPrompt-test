@@ -1,7 +1,5 @@
 # 🌿 EcoPrompt
 
-Try it out here: [https://ecoprompt-fullyhacks2026.vercel.app/](https://ecoprompt-fullyhacks2026.vercel.app/)
-
 > **Revision note:** The original project was built around a local FastAPI + Ollama + HumanDelta multi-process stack (described below).  
 > This repository has since been revised for easier deployment/demo (single-command run, serverless API flow, and no local Ollama requirement).  
 > The section below preserves the original project description for historical/context purposes.
