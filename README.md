@@ -1,5 +1,7 @@
 # 🌿 EcoPrompt
 
+By: Nicklaus Marietta, Dylan Wong, and Josephine Choi
+
 Try it out here: [https://ecoprompt-fullyhacks2026.vercel.app/](https://ecoprompt-fullyhacks2026.vercel.app/)
 
 > **Revision note:** The original project was built around a local FastAPI + Ollama + HumanDelta multi-process stack (described below).  
